@@ -109,6 +109,13 @@ section[data-testid="stSidebar"] { display: none; }
     margin-top: 1rem;
     letter-spacing: 0.3px;
 }
+.deadline-notice {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.48);
+    margin-top: 0.55rem;
+    line-height: 1.45;
+    max-width: 440px;
+}
 
 /* ── Section Divider ── */
 .section-head {
@@ -137,32 +144,47 @@ section[data-testid="stSidebar"] { display: none; }
 /* ── Input field overrides ── */
 div[data-testid="stTextInput"] label,
 div[data-testid="stNumberInput"] label {
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    color: rgba(255,255,255,0.55) !important;
-    letter-spacing: 0.4px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: rgba(255,255,255,0.6) !important;
+    letter-spacing: 0.5px !important;
     text-transform: uppercase !important;
     margin-bottom: 0.4rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+}
+
+/* Input container styles */
+div[data-testid="stTextInput"] div[data-baseweb="input"],
+div[data-testid="stTextInput"] div[data-baseweb="base-input"],
+div[data-testid="stNumberInput"] div[data-baseweb="input"],
+div[data-testid="stNumberInput"] div[data-baseweb="base-input"],
+div[data-testid="stNumberInput"] > div,
+div[data-testid="stNumberInput"] > div > div {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1.5px solid rgba(255,255,255,0.12) !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    transition: all 0.2s ease !important;
 }
 div[data-testid="stTextInput"] input,
 div[data-testid="stNumberInput"] input {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1.5px solid rgba(255,255,255,0.09) !important;
-    border-radius: 12px !important;
+    background: transparent !important;
+    border: none !important;
     color: #ffffff !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 1rem !important;
-    font-weight: 500 !important;
-    padding: 0.7rem 1rem !important;
-    transition: all 0.2s ease !important;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3) !important;
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    padding: 0.65rem 0.9rem !important;
 }
-div[data-testid="stTextInput"] input:focus,
-div[data-testid="stNumberInput"] input:focus {
-    background: rgba(255,180,0,0.05) !important;
-    border-color: rgba(255,180,0,0.55) !important;
-    box-shadow: 0 0 0 3px rgba(255,180,0,0.1), inset 0 1px 2px rgba(0,0,0,0.2) !important;
-    outline: none !important;
+div[data-testid="stNumberInput"] input {
+    text-align: center !important;
+}
+div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
+div[data-testid="stNumberInput"] > div:focus-within {
+    border-color: rgba(255,180,0,0.6) !important;
+    box-shadow: 0 0 0 3px rgba(255,180,0,0.12) !important;
 }
 div[data-testid="stTextInput"] input::placeholder {
     color: rgba(255,255,255,0.2) !important;
@@ -171,108 +193,207 @@ div[data-testid="stTextInput"] input::placeholder {
 
 /* Number input spinner buttons */
 div[data-testid="stNumberInput"] button {
-    background: rgba(255,255,255,0.06) !important;
-    border-color: rgba(255,255,255,0.09) !important;
-    color: rgba(255,255,255,0.6) !important;
+    background: rgba(255,255,255,0.08) !important;
+    border: none !important;
+    color: rgba(255,255,255,0.7) !important;
     border-radius: 8px !important;
+    transition: all 0.15s ease !important;
 }
 div[data-testid="stNumberInput"] button:hover {
-    background: rgba(255,180,0,0.15) !important;
-    border-color: rgba(255,180,0,0.3) !important;
+    background: rgba(255,180,0,0.25) !important;
     color: #FFB700 !important;
 }
 
-/* ── Location Radio — card style ── */
+/* ── Location Radio — sleek cards ── */
 div[data-testid="stRadio"] > label { display: none !important; }
-div[data-baseweb="radio-group"] {
+div[data-baseweb="radio-group"],
+div[data-testid="stRadio"] div[role="radiogroup"] {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 0.75rem !important;
     margin: 0.5rem 0 1.25rem !important;
 }
-div[data-baseweb="radio"] {
+div[data-baseweb="radio"],
+div[data-testid="stRadio"] div[role="radiogroup"] > label {
     flex: 1 !important;
     background: rgba(255,255,255,0.03) !important;
     border: 1.5px solid rgba(255,255,255,0.08) !important;
     border-radius: 14px !important;
-    padding: 1.25rem 1rem !important;
+    padding: 1.1rem 0.75rem !important;
     text-align: center !important;
     cursor: pointer !important;
     transition: all 0.22s ease !important;
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
-div[data-baseweb="radio"]:hover {
+div[data-baseweb="radio"]:hover,
+div[data-testid="stRadio"] div[role="radiogroup"] > label:hover {
     border-color: rgba(255,180,0,0.35) !important;
     background: rgba(255,180,0,0.05) !important;
     transform: translateY(-2px) !important;
 }
 /* Selected card */
-div[data-baseweb="radio"]:has(input:checked) {
-    border-color: rgba(255,180,0,0.7) !important;
-    background: rgba(255,180,0,0.1) !important;
+div[data-baseweb="radio"]:has(input:checked),
+div[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
+    border-color: rgba(255,180,0,0.75) !important;
+    background: rgba(255,180,0,0.12) !important;
     box-shadow: 0 0 0 1px rgba(255,180,0,0.25), 0 8px 24px rgba(255,140,0,0.12) !important;
 }
 /* Hide radio circle dot */
 div[data-baseweb="radio"] [role="radio"],
-div[data-baseweb="radio"] svg { display: none !important; }
+div[data-baseweb="radio"] svg,
+div[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child,
+div[data-testid="stRadio"] input[type="radio"] {
+    display: none !important;
+}
 /* Label text */
-div[data-baseweb="radio"] > div:last-child,
-div[data-baseweb="radio"] label {
+div[data-baseweb="radio"] label,
+div[data-testid="stRadio"] div[role="radiogroup"] > label * {
     font-family: 'Inter', sans-serif !important;
     font-size: 0.92rem !important;
     font-weight: 700 !important;
     letter-spacing: 0.6px !important;
     color: rgba(255,255,255,0.65) !important;
-    margin: 0 !important;
-    padding: 0 !important;
 }
-div[data-baseweb="radio"]:has(input:checked) > div:last-child,
-div[data-baseweb="radio"]:has(input:checked) label {
+div[data-baseweb="radio"]:has(input:checked) label,
+div[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) * {
     color: #FFB700 !important;
 }
 
-/* ── Pack Selector Row ── */
-.pack-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-}
-.pack-block {
+/* ── Pack Cards (Ripe & Unripe) ── */
+.pack-card {
     background: rgba(255,255,255,0.03);
-    border: 1.5px solid rgba(255,255,255,0.07);
     border-radius: 14px;
-    padding: 1rem 1rem 0.75rem;
-    transition: border-color 0.2s;
+    padding: 1rem 0.95rem;
+    margin-bottom: 0.65rem;
+    transition: all 0.22s ease;
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
 }
-.pack-block:focus-within {
-    border-color: rgba(255,180,0,0.4);
+.pack-card:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
 }
-.pack-header {
+.pack-card-ripe,
+.pack-card-unripe {
+    border: 1.5px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.03);
+}
+.pack-card-ripe:hover,
+.pack-card-unripe:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.pack-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.pack-pill {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    padding: 0.22rem 0.6rem;
+    border-radius: 100px;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.pill-ripe,
+.pill-unripe {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pack-price {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+.pack-unit {
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.4);
+}
+
+.pack-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin-bottom: 0.2rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.6rem;
+    gap: 0.45rem;
+    color: #ffffff !important;
 }
+.ripe-text,
+.unripe-text {
+    color: #ffffff !important;
+}
+
 .pack-dot {
-    width: 10px; height: 10px;
+    width: 8px; height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
 }
-.dot-ripe   { background: #FFD000; box-shadow: 0 0 6px rgba(255,208,0,0.5); }
-.dot-unripe { background: #44E070; box-shadow: 0 0 6px rgba(68,224,112,0.4); }
-.pack-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: rgba(255,255,255,0.55);
-    text-transform: uppercase;
+.dot-ripe,
+.dot-unripe {
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
 }
+
 .pack-desc {
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.25);
-    margin-top: 0.1rem;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.35;
+}
+
+/* Pack inputs — clean white text */
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] > div,
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] > div > div {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] > div:focus-within {
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12) !important;
+}
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] input {
+    color: #ffffff !important;
+}
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] button {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+div[data-testid="stColumn"] div[data-testid="stNumberInput"] button:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Responsive: clean column stacking and clear separation on small screens */
+@media (max-width: 640px) {
+    div[data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 1.25rem !important;
+    }
+    div[data-testid="stColumn"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    div[data-testid="stColumn"]:last-child {
+        margin-top: 0.25rem !important;
+        padding-top: 1.25rem !important;
+        border-top: 1px dashed rgba(255,255,255,0.12) !important;
+    }
 }
 
 /* ── Order Total ── */
@@ -481,8 +602,9 @@ st.markdown("""
     <span class="hero-icon">🍌</span>
     <h1 class="hero-title">Order Fresh<br><span>Plantain Chips</span></h1>
     <p class="hero-sub">Homemade. Crispy. Delivered weekly.</p>
-    <div style="display:flex;justify-content:center">
+    <div style="display:flex;flex-direction:column;align-items:center">
         <span class="deadline-pill">⏰ &nbsp;Orders close every Wednesday at 5 PM</span>
+        <div class="deadline-notice">Orders made later than 5pm might not be delivered as expected but be delivered the following week.</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -529,38 +651,51 @@ with st.form("order_form", clear_on_submit=False):
         <div class="section-head-icon">📦</div>
         <span class="section-head-text">Choose Your Packs</span>
     </div>
-    <div class="pack-row">
-        <div class="pack-block">
-            <div class="pack-header">
-                <div class="pack-dot dot-ripe"></div>
-                <div>
-                    <div class="pack-label">Ripe Chips</div>
-                    <div class="pack-desc">Sweet &amp; golden · ₦2,500</div>
-                </div>
-            </div>
-        </div>
-        <div class="pack-block">
-            <div class="pack-header">
-                <div class="pack-dot dot-unripe"></div>
-                <div>
-                    <div class="pack-label">Unripe Chips</div>
-                    <div class="pack-desc">Savoury &amp; crisp · ₦2,500</div>
-                </div>
-            </div>
-        </div>
-    </div>
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
+        st.markdown("""
+        <div class="pack-card">
+            <div class="pack-top-bar">
+                <span class="pack-pill">SWEET &amp; GOLDEN</span>
+                <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
+            </div>
+            <div class="pack-title">
+                <span class="pack-dot"></span> Ripe Chips
+            </div>
+            <div class="pack-desc">Naturally sweet, crispy plantain slices</div>
+        </div>
+        """, unsafe_allow_html=True)
         ripe_chips = st.number_input(
-            "Ripe Chips (packs)", min_value=0, max_value=999, step=1, value=0,
-            label_visibility="collapsed",
+            "Ripe Chips (Sweet & Golden)",
+            min_value=0,
+            max_value=999,
+            step=1,
+            value=0,
+            key="ripe_chips_qty",
         )
+
     with col2:
+        st.markdown("""
+        <div class="pack-card">
+            <div class="pack-top-bar">
+                <span class="pack-pill">SAVOURY &amp; CRISP</span>
+                <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
+            </div>
+            <div class="pack-title">
+                <span class="pack-dot"></span> Unripe Chips
+            </div>
+            <div class="pack-desc">Lightly salted, savory crunch in every bite</div>
+        </div>
+        """, unsafe_allow_html=True)
         unripe_chips = st.number_input(
-            "Unripe Chips (packs)", min_value=0, max_value=999, step=1, value=0,
-            label_visibility="collapsed",
+            "Unripe Chips (Savoury & Crisp)",
+            min_value=0,
+            max_value=999,
+            step=1,
+            value=0,
+            key="unripe_chips_qty",
         )
 
     # Live total
