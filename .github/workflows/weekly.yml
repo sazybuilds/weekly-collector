@@ -1,0 +1,30 @@
+name: Weekly report
+
+on:
+  schedule:
+    - cron: "0 13 * * 1" # every Monday 13:00 UTC
+  workflow_dispatch:     # adds a manual "Run workflow" button in GitHub Actions tab
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install dependencies
+        run: |
+          uv venv --python 3.12
+          uv pip install -r scripts/requirements.txt
+
+      - name: Send report
+        run: .venv/bin/python scripts/send_weekly.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

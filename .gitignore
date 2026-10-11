@@ -1,0 +1,32 @@
+# Secrets and Environment Variables
+.env
+*.env
+secrets.toml
+**/secrets.toml
+.streamlit/secrets.toml
+
+# Virtual Environments
+venv/
+.venv/
+ENV/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.key
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Local test & simulation outputs
+*.db
+*.csv
+simulated*
+
+#extras
+deployment.md
+order_collector_guide.pdf
+
