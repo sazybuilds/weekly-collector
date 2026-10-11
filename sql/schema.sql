@@ -9,9 +9,13 @@ CREATE TABLE IF NOT EXISTS orders (
     ripe_chips INT NOT NULL DEFAULT 0 CHECK (ripe_chips >= 0),
     unripe_chips INT NOT NULL DEFAULT 0 CHECK (unripe_chips >= 0),
     CONSTRAINT at_least_one_item CHECK (ripe_chips + unripe_chips > 0),
+    location TEXT NOT NULL DEFAULT 'MAINLAND' CHECK (location IN ('MAINLAND', 'ISLAND')),
     total INT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- 1b. If the table already exists, add the location column (safe to run on existing deployments)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT 'MAINLAND' CHECK (location IN ('MAINLAND', 'ISLAND'));
 
 -- 2. Optional: Index on id and created_at for fast queries
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);

@@ -1,40 +1,56 @@
-# 📦 Weekly Order Collector (Supabase Edition)
+<div align="center">
 
-An automated, privacy-focused order collection application built with **Streamlit**, **Supabase (PostgreSQL)**, **GitHub Actions**, and **Telegram**.
+<img src="https://em-content.zobj.net/source/apple/391/banana_1f34c.png" width="72" alt="Plantain Chips">
+
+# Weekly Order Collector
+
+**A privacy-first, automated order management system for weekly plantain chips deliveries.**  
+Built with Streamlit · Supabase · GitHub Actions · Telegram
+
+[![Made with Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Community_Cloud-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Automated-2088FF?style=flat-square&logo=github-actions&logoColor=white)](https://github.com/features/actions)
 
 ---
 
-## 🏗️ Architecture Overview
+*Created by **Osazuwa***
 
-In this edition, **Supabase completely replaces Neon and Oracle Cloud VM**:
+</div>
+
+---
+
+## ✨ What It Does
+
+Customers visit a beautiful web form, pick their chips, choose their delivery zone (Mainland or Island), and submit. Every **Wednesday at 5 PM**, an automated report is sent to the seller's Telegram — a decrypted CSV of all orders, broken down by location, with a clean summary. The database is then wiped clean for the next week.
+
+Zero manual work. Zero spreadsheets. Zero exposed phone numbers.
+
+---
+
+## 🏗️ How It Works
 
 ```
 Customer's Phone / Browser
          │
          ▼
-Streamlit Community Cloud (streamlit_app/app.py)
-   • Validates name, phone, ripe & unripe chips quantities
-   • Calculates order total ((Ripe + Unripe packs) × 2,500)
-   • Encrypts WhatsApp phone number with Fernet
-   • Directly saves order into Supabase
+Streamlit Community Cloud  (streamlit_app/app.py)
+   ├─ Collects name, WhatsApp, packs, location
+   ├─ Encrypts WhatsApp number with Fernet (AES-128)
+   └─ Saves encrypted order to Supabase
          │
          ▼
-Supabase Database (PostgreSQL table: orders)
+Supabase  (PostgreSQL · orders table)
          ▲
-         │ Every Monday at 13:00 UTC (or manual click)
+         │  Every Wednesday at 16:00 UTC / 5:00 PM WAT
          │
-GitHub Actions (scripts/send_weekly.py)
-   • Reads all weekly orders
-   • Decrypts WhatsApp phone numbers
-   • Generates CSV report
-   • Sends CSV document to the seller via Telegram Bot
-   • Safely clears delivered orders from the database
+GitHub Actions  (scripts/send_weekly.py)
+   ├─ Reads all orders from Supabase
+   ├─ Decrypts WhatsApp phone numbers
+   ├─ Builds orders.csv (sorted by location)
+   ├─ Sends CSV + summary to seller via Telegram Bot
+   └─ Deletes delivered orders — ready for next week
 ```
-
-### Why Supabase only?
-- **No Oracle Cloud VM needed**: You do not need to create an Oracle Cloud account, set up credit card verification, configure Linux VMs, manage SSH keys, open firewall ports, configure Caddy HTTPS reverse proxy, or manage DuckDNS.
-- **Streamlit connects directly**: Streamlit Community Cloud runs secure Python server-side, encrypting data with Fernet before it touches the database.
-- **Unified platform**: Database, pooling, backups, and SQL management are all handled in Supabase.
 
 ---
 
@@ -44,113 +60,114 @@ GitHub Actions (scripts/send_weekly.py)
 weekly-collector/
 ├── .github/
 │   └── workflows/
-│       └── weekly.yml          # GitHub Actions weekly schedule & manual trigger
-├── api/
-│   ├── main.py                 # FastAPI server (optional / local testing)
-│   └── requirements.txt
+│       └── weekly.yml           # Runs every Wednesday 5 PM WAT (+ manual trigger)
 ├── scripts/
-│   ├── send_weekly.py          # Script: reads DB -> generates CSV -> Telegram -> deletes sent orders
-│   ├── generate_keys.py        # Helper to generate API_KEY and ENCRYPTION_KEY
+│   ├── send_weekly.py           # Core export: DB → CSV → Telegram → cleanup
+│   ├── generate_keys.py         # Generates ENCRYPTION_KEY + API_KEY
 │   └── requirements.txt
 ├── sql/
-│   └── schema.sql              # Supabase table definition & RLS policies
+│   └── schema.sql               # Supabase table + RLS policies
 ├── streamlit_app/
-│   ├── app.py                  # Streamlit web application for customers
+│   ├── app.py                   # Customer-facing order form (premium dark UI)
 │   ├── requirements.txt
 │   └── .streamlit/
-│       └── secrets.toml.example # Example secrets file for local development
+│       └── secrets.toml         # Local secrets (gitignored)
+├── .env                         # Local env vars (gitignored)
 ├── .gitignore
-├── order_collector_guide.pdf   # Original guide
 └── README.md
 ```
 
 ---
 
-## 🚀 Quick Setup Steps
+## 🔑 Secrets Reference
 
-### 1. Generate Application Secrets
-Run the key generation script:
+| Secret | Used In | Description |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | Streamlit + GitHub Actions | Supabase PostgreSQL connection URI |
+| `ENCRYPTION_KEY` | Streamlit + GitHub Actions | 44-char Fernet key for WhatsApp encryption |
+| `TELEGRAM_BOT_TOKEN` | GitHub Actions only | Bot token from `@BotFather` |
+| `TELEGRAM_CHAT_ID` | GitHub Actions only | Recipient's Telegram user/chat ID |
+
+---
+
+## 🚀 Deployment in 4 Steps
+
+### 1 · Generate Secrets
+
 ```powershell
 python scripts/generate_keys.py
 ```
-This produces:
-- `API_KEY`
-- `ENCRYPTION_KEY` (44 characters ending in `=`)
 
-*Keep your `ENCRYPTION_KEY` in a secure place. If you lose it, stored phone numbers cannot be decrypted.*
+Save the `ENCRYPTION_KEY` (44 characters ending in `=`) securely. **You cannot recover it if lost.**
 
 ---
 
-### 2. Set Up Supabase
-1. Go to [supabase.com](https://supabase.com) and create a free account.
-2. Click **New Project** and name it `weekly-collector`. Choose a region close to your target audience and set a strong database password.
-3. In the left navigation, open **SQL Editor** > **New Query**.
-4. Paste the content of `sql/schema.sql` and click **Run**.
-5. Go to **Project Settings** (gear icon) > **Database**.
-6. Scroll down to **Connection string** > select **URI** > select **Mode: Session** (or **Transaction**, port `6543`).
-7. Copy the connection string. Replace `[YOUR-PASSWORD]` with the database password you created in step 2:
-   ```
-   postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require
-   ```
-   *This is your `DATABASE_URL`.*
+### 2 · Set Up Supabase
+
+1. Create a free project at [supabase.com](https://supabase.com) named `weekly-collector`.
+2. Open **SQL Editor → New Query**, paste `sql/schema.sql`, click **Run**.
+3. Go to **Settings → Database → Connection string → URI → Mode: Session**.
+4. Copy the URI and replace `[YOUR-PASSWORD]`:
+
+```
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+> **Existing deployment?** Run this to add the location column:
+> ```sql
+> ALTER TABLE orders ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT 'MAINLAND' CHECK (location IN ('MAINLAND', 'ISLAND'));
+> ```
 
 ---
 
-### 3. Create Telegram Bot
-1. In Telegram, search for `@BotFather` (with the verified blue tick).
-2. Send `/newbot`.
-3. Enter a display name (e.g. `Weekly Orders Bot`).
-4. Enter a username ending in `bot` (e.g. `my_weekly_orders_bot`).
-5. Copy the bot token provided (e.g. `123456789:AAExampleTokenText`). *This is `TELEGRAM_BOT_TOKEN`.*
-6. Open your new bot's link (`https://t.me/YOUR_BOT_USERNAME`) and click **Start**.
-7. In your browser, open:
-   ```
-   https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates
-   ```
-8. Look for `"chat":{"id": 123456789}`. That number is your `TELEGRAM_CHAT_ID`.
+### 3 · Set Up Telegram Bot
+
+1. Search `@BotFather` in Telegram → send `/newbot` → follow the prompts.
+2. Save the token as `TELEGRAM_BOT_TOKEN`.
+3. Open your bot's link and click **Start**, then send any message.
+4. Visit `https://api.telegram.org/bot<TOKEN>/getUpdates` and find `"chat":{"id": ...}`.
+5. That number is your `TELEGRAM_CHAT_ID`.
 
 ---
 
-### 4. Local Testing
-1. Create a virtual environment and install dependencies:
-   ```powershell
-   uv venv --python 3.12
-   .venv\Scripts\activate
-   uv pip install -r streamlit_app/requirements.txt -r scripts/requirements.txt
-   ```
-2. Copy `streamlit_app/.streamlit/secrets.toml.example` to `streamlit_app/.streamlit/secrets.toml` and fill in your `DATABASE_URL` and `ENCRYPTION_KEY`.
-3. Run the Streamlit web form:
-   ```powershell
-   cd streamlit_app
-   streamlit run app.py
-   ```
-4. Fill out an order and click **Submit Order**. Verify the order appears encrypted in Supabase under **Table Editor** > `orders`.
-5. Test the weekly export script:
-   ```powershell
-   cd ..
-   $env:DATABASE_URL="your-supabase-db-url"
-   $env:ENCRYPTION_KEY="your-encryption-key"
-   $env:TELEGRAM_BOT_TOKEN="your-telegram-token"
-   $env:TELEGRAM_CHAT_ID="your-telegram-chat-id"
-   python scripts/send_weekly.py
-   ```
-   Verify that a CSV arrives on Telegram and that the table is cleared.
+### 4 · Push & Deploy
+
+**GitHub** — add 4 repository secrets under *Settings → Secrets → Actions*:
+`DATABASE_URL` · `ENCRYPTION_KEY` · `TELEGRAM_BOT_TOKEN` · `TELEGRAM_CHAT_ID`
+
+**Streamlit Cloud** — deploy at [share.streamlit.io](https://share.streamlit.io):
+- Main file: `streamlit_app/app.py`
+- Advanced secrets (paste 2 only):
+```toml
+DATABASE_URL = "your-supabase-uri"
+ENCRYPTION_KEY = "your-44-char-key"
+```
 
 ---
 
-### 5. Deploy to Production
-1. Push this repository to a **Private** repository on GitHub.
-2. In GitHub, go to **Settings** > **Secrets and variables** > **Actions** > **New repository secret** and add:
-   - `DATABASE_URL`
-   - `ENCRYPTION_KEY`
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-3. In [share.streamlit.io](https://share.streamlit.io), deploy your app:
-   - Repository: `YOUR_USERNAME/weekly-collector`
-   - Main file path: `streamlit_app/app.py`
-   - Under **Advanced settings** > **Secrets**, paste:
-     ```toml
-     DATABASE_URL = "postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require"
-     ENCRYPTION_KEY = "your-encryption-key"
-     ```
-4. Click **Deploy**. Your app is live!
+## 🔄 Day-to-Day
+
+| | |
+|---|---|
+| **Schedule** | Every Wednesday at 5:00 PM WAT (16:00 UTC) |
+| **Manual trigger** | GitHub → Actions → Weekly report → Run workflow |
+| **View live orders** | Supabase Dashboard → Table Editor → `orders` |
+| **Phone numbers** | Always encrypted in the DB (`gAAAA...` format) |
+| **After each report** | Table is automatically cleared for the next batch |
+
+---
+
+## 🛡️ Privacy & Security
+
+- Customer WhatsApp numbers are **encrypted with Fernet (AES-128-CBC)** before leaving the browser.
+- The database only stores the encrypted blob — never a raw phone number.
+- Decryption only happens inside GitHub Actions, in memory, during the weekly export.
+- Row Level Security (RLS) on Supabase ensures anonymous users can only insert — never read or delete.
+
+---
+
+<div align="center">
+
+Made with ❤️ by **Osazuwa**
+
+</div>

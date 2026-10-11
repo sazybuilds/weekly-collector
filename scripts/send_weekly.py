@@ -45,8 +45,8 @@ def main():
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, name, whatsapp_enc, ripe_chips, unripe_chips, total, created_at "
-            "FROM orders ORDER BY id"
+            "SELECT id, name, whatsapp_enc, ripe_chips, unripe_chips, location, total, created_at "
+            "FROM orders ORDER BY location, id"
         )
         rows = cur.fetchall()
 
@@ -64,12 +64,13 @@ def main():
             "ripe_chips",
             "unripe_chips",
             "total_chips",
+            "location",
             "total",
-            "created_at"
+            "created_at",
         ])
 
         for r in rows:
-            # Columns: 0:id, 1:name, 2:whatsapp_enc, 3:ripe_chips, 4:unripe_chips, 5:total, 6:created_at
+            # Columns: 0:id, 1:name, 2:whatsapp_enc, 3:ripe_chips, 4:unripe_chips, 5:location, 6:total, 7:created_at
             try:
                 decrypted_number = fernet.decrypt(r[2].encode()).decode()
             except Exception as e:
@@ -77,26 +78,34 @@ def main():
                 decrypted_number = "[Decryption Failed]"
 
             created_str = (
-                r[6].strftime("%Y-%m-%d %H:%M")
-                if hasattr(r[6], "strftime")
-                else str(r[6])
+                r[7].strftime("%Y-%m-%d %H:%M")
+                if hasattr(r[7], "strftime")
+                else str(r[7])
             )
             total_chips = r[3] + r[4]
-            w.writerow([r[0], r[1], decrypted_number, r[3], r[4], total_chips, r[5], created_str])
+            w.writerow([r[0], r[1], decrypted_number, r[3], r[4], total_chips, r[5], r[6], created_str])
 
         total_ripe = sum(r[3] for r in rows)
         total_unripe = sum(r[4] for r in rows)
-        grand_total = sum(r[5] for r in rows)
+        grand_total = sum(r[6] for r in rows)
+
+        mainland_count = sum(1 for r in rows if r[5] == "MAINLAND")
+        island_count = sum(1 for r in rows if r[5] == "ISLAND")
+
         csv_bytes = buf.getvalue().encode("utf-8")
 
         print("Sending CSV to Telegram...")
         telegram_url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
         caption = (
-            f"Weekly orders report: {len(rows)} order(s)\n"
-            f"- Ripe chips: {total_ripe} pack(s)\n"
-            f"- Unripe chips: {total_unripe} pack(s)\n"
-            f"- Total chips: {total_ripe + total_unripe} pack(s)\n"
-            f"- Grand total: {grand_total:,}"
+            f"📦 Weekly orders report — {len(rows)} order(s)\n"
+            f"\n"
+            f"🟡 Ripe chips: {total_ripe} pack(s)\n"
+            f"🟢 Unripe chips: {total_unripe} pack(s)\n"
+            f"📦 Total chips: {total_ripe + total_unripe} pack(s)\n"
+            f"💰 Grand total: ₦{grand_total:,}\n"
+            f"\n"
+            f"📍 Mainland orders: {mainland_count}\n"
+            f"🏝️ Island orders: {island_count}"
         )
 
         resp = requests.post(

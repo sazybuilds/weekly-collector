@@ -2,7 +2,7 @@ name: Weekly report
 
 on:
   schedule:
-    - cron: "0 13 * * 1" # every Monday 13:00 UTC
+    - cron: "0 16 * * 3" # every Wednesday 16:00 UTC (5:00 PM WAT/BST)
   workflow_dispatch:     # adds a manual "Run workflow" button in GitHub Actions tab
 
 jobs:
