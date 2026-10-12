@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS orders (
 -- 1b. If the table already exists, add the location column (safe to run on existing deployments)
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT 'MAINLAND' CHECK (location IN ('MAINLAND', 'ISLAND'));
 
+-- 1c. Special order columns and constraint update (safe to run on existing deployments)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS special_instructions TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_special BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS at_least_one_item;
+ALTER TABLE orders ADD CONSTRAINT at_least_one_item CHECK (ripe_chips + unripe_chips > 0 OR is_special = TRUE);
+
 -- 2. Optional: Index on id and created_at for fast queries
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 
