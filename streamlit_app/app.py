@@ -1,5 +1,6 @@
 import re
 import os
+from datetime import date, timedelta
 import requests
 import streamlit as st
 
@@ -491,6 +492,99 @@ div[data-testid="stAlert"] {
     margin: -0.3rem 0 1rem 0.1rem;
     line-height: 1.5;
 }
+/* ── Tabs Styling ── */
+div[data-testid="stTabs"] {
+    margin-top: 0.3rem;
+    margin-bottom: 1.2rem;
+}
+div[data-testid="stTabs"] [role="tablist"] {
+    gap: 0.6rem !important;
+    justify-content: center !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+div[data-testid="stTabs"] button[role="tab"] {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    border-radius: 12px !important;
+    color: rgba(255,255,255,0.6) !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    padding: 0.65rem 1.3rem !important;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="stTabs"] button[role="tab"]:hover {
+    color: #FFB700 !important;
+    border-color: rgba(255,180,0,0.35) !important;
+    background: rgba(255,180,0,0.06) !important;
+}
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    color: #12080a !important;
+    background: linear-gradient(135deg, #FFB700 0%, #FF8500 100%) !important;
+    border-color: #FFB700 !important;
+    box-shadow: 0 4px 18px rgba(255,160,0,0.3) !important;
+}
+
+/* ── Textarea styling for Special Orders ── */
+div[data-testid="stTextArea"] textarea {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1.5px solid rgba(255,180,0,0.35) !important;
+    border-radius: 14px !important;
+    color: #ffffff !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.95rem !important;
+    padding: 1rem !important;
+    line-height: 1.6 !important;
+}
+div[data-testid="stTextArea"] textarea:focus {
+    border-color: #FFB700 !important;
+    box-shadow: 0 0 0 3px rgba(255,180,0,0.18) !important;
+}
+div[data-testid="stTextArea"] textarea::placeholder {
+    color: rgba(255,255,255,0.3) !important;
+}
+
+/* ── Date input styling ── */
+div[data-testid="stDateInput"] > div > div {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1.5px solid rgba(255,255,255,0.12) !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+}
+div[data-testid="stDateInput"] input {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* ── Special badge and banner ── */
+.special-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, rgba(255,180,0,0.15) 0%, rgba(255,80,0,0.12) 100%);
+    border: 1.5px solid rgba(255,190,0,0.35);
+    border-radius: 100px;
+    padding: 0.4rem 1.1rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #FFB700;
+    margin-top: 1rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.special-banner {
+    background: rgba(255,180,0,0.06);
+    border: 1px solid rgba(255,180,0,0.18);
+    border-radius: 14px;
+    padding: 0.9rem 1.1rem;
+    margin: 1.2rem 0 1.8rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.55;
+    text-align: left;
+}
+.special-banner strong {
+    color: #FFB700;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -575,6 +669,141 @@ def save_to_database(name, whatsapp, ripe_chips, unripe_chips, location, total):
         raise ValueError("No backend configured. Add DATABASE_URL + ENCRYPTION_KEY to secrets.")
 
 
+def send_telegram_notification(name, whatsapp, ripe_chips, unripe_chips, location, total):
+    """Send an instant Telegram message to the seller when an order is placed."""
+    bot_token = get_config_value("TELEGRAM_BOT_TOKEN")
+    chat_id   = get_config_value("TELEGRAM_CHAT_ID")
+    if not bot_token or not chat_id:
+        return  # Telegram not configured — skip silently
+
+    loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
+    total_packs = ripe_chips + unripe_chips
+    message = (
+        f"🛒 *New Order Received!*\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 *Name:* {name}\n"
+        f"📱 *WhatsApp:* `{whatsapp}`\n"
+        f"🟡 *Ripe Chips:* {ripe_chips} pack(s)\n"
+        f"🟢 *Unripe Chips:* {unripe_chips} pack(s)\n"
+        f"📦 *Total Packs:* {total_packs}\n"
+        f"{loc_icon} *Location:* {location}\n"
+        f"💰 *Total:* ₦{total:,}\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            json={
+                "chat_id": chat_id,
+                "text": message,
+                "parse_mode": "Markdown",
+            },
+            timeout=10,
+        )
+    except Exception:
+        pass  # Don't break the order flow if Telegram fails
+
+
+def send_special_order_telegram(name, whatsapp, ripe_chips, unripe_chips, location, delivery_date, address, special_instructions, total):
+    """Send a SPECIAL ORDER notification in CAPS to the seller's Telegram."""
+    bot_token = get_config_value("TELEGRAM_BOT_TOKEN")
+    chat_id   = get_config_value("TELEGRAM_CHAT_ID")
+    if not bot_token or not chat_id:
+        raise ValueError("Telegram is not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to secrets.")
+
+    loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
+    total_packs = ripe_chips + unripe_chips
+    address_line = f"🏢 *Address / Landmark:* {address}\n" if address else ""
+    price_line = f"💰 *Estimated Total:* ₦{total:,}\n" if total > 0 else "💰 *Quote:* Custom Quote (Pending Seller Review)\n"
+
+    message = (
+        f"🚨🚨🚨 *SPECIAL ORDER* 🚨🚨🚨\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 *Customer:* {name}\n"
+        f"📱 *WhatsApp:* `{whatsapp}`\n"
+        f"{loc_icon} *Area:* {location}\n"
+        f"{address_line}"
+        f"📅 *Expected Delivery:* {delivery_date}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🟡 *Ripe Packs (Est.):* {ripe_chips}\n"
+        f"🟢 *Unripe Packs (Est.):* {unripe_chips}\n"
+        f"📦 *Total Est. Packs:* {total_packs}\n"
+        f"{price_line}"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📝 *SPECIAL ORDER SPECIFICS:*\n"
+        f"{special_instructions}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    resp = requests.post(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+        },
+        timeout=15,
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Telegram API error: {resp.status_code} - {resp.text}")
+
+
+def save_special_order_to_database(name, whatsapp, ripe_chips, unripe_chips, location, delivery_date, full_instructions, total):
+    """Save the special order to the database with is_special = TRUE."""
+    db_url     = get_config_value("DATABASE_URL")
+    enc_key    = get_config_value("ENCRYPTION_KEY")
+    supabase_url  = get_config_value("SUPABASE_URL")
+    supabase_key  = get_config_value("SUPABASE_KEY")
+
+    if db_url:
+        import psycopg2
+        from cryptography.fernet import Fernet
+        if not enc_key:
+            raise ValueError("ENCRYPTION_KEY is missing.")
+        fernet = Fernet(enc_key.encode())
+        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
+        conn = psycopg2.connect(db_url)
+        try:
+            with conn, conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO orders (name, whatsapp_enc, ripe_chips, unripe_chips, location, total, delivery_date, special_instructions, is_special) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (name.strip(), whatsapp_enc, ripe_chips, unripe_chips, location, total,
+                     str(delivery_date), full_instructions.strip(), True),
+                )
+        finally:
+            conn.close()
+        return total
+
+    elif supabase_url and supabase_key:
+        from cryptography.fernet import Fernet
+        if not enc_key:
+            raise ValueError("ENCRYPTION_KEY is missing.")
+        fernet = Fernet(enc_key.encode())
+        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        }
+        payload = {
+            "name": name.strip(), "whatsapp_enc": whatsapp_enc,
+            "ripe_chips": ripe_chips, "unripe_chips": unripe_chips,
+            "location": location, "total": total,
+            "delivery_date": str(delivery_date),
+            "special_instructions": full_instructions.strip(),
+            "is_special": True,
+        }
+        res = requests.post(f"{supabase_url.rstrip('/')}/rest/v1/orders",
+                            json=payload, headers=headers, timeout=15)
+        if not res.ok:
+            raise RuntimeError(f"Supabase REST error: {res.status_code} - {res.text}")
+        return total
+
+    else:
+        raise ValueError("No backend configured. Add DATABASE_URL + ENCRYPTION_KEY to secrets.")
+
+
 # ── Creator credit ───────────────────────────────────────────────────────────
 st.markdown("""
 <div style="
@@ -595,169 +824,383 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Hero ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="hero">
-    <div class="hero-glow"></div>
-    <span class="hero-icon">🍌</span>
-    <h1 class="hero-title">Order Fresh<br><span>Plantain Chips</span></h1>
-    <p class="hero-sub">Homemade. Crispy. Delivered weekly.</p>
-    <div style="display:flex;flex-direction:column;align-items:center">
-        <span class="deadline-pill">⏰ &nbsp;Orders close every Wednesday at 5 PM</span>
-        <div class="deadline-notice">Orders made later than 5pm might not be delivered as expected but be delivered the following week.</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# ── Navigation Tabs ──────────────────────────────────────────────────────────
+tab_regular, tab_special = st.tabs(["🍌  Regular Weekly Order", "⭐  Special & Custom Order"])
 
-# ── Order Form ────────────────────────────────────────────────────────────────
-with st.form("order_form", clear_on_submit=False):
-
-    # Customer details
+with tab_regular:
+    # ── Regular Hero ──
     st.markdown("""
-    <div class="section-head">
-        <div class="section-head-icon">👤</div>
-        <span class="section-head-text">Your Details</span>
+    <div class="hero">
+        <div class="hero-glow"></div>
+        <span class="hero-icon">🍌</span>
+        <h1 class="hero-title">Order Fresh<br><span>"On the Go" Plantain Chips</span></h1>
+        <p class="hero-sub">Homemade. Crispy. Delivered weekly.</p>
+        <div style="display:flex;flex-direction:column;align-items:center">
+            <span class="deadline-pill">⏰ &nbsp;Orders close every Wednesday at 5 PM</span>
+            <div class="deadline-notice">Orders made later than 5pm might not be delivered as expected but be delivered the following week.</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    name = st.text_input("Full Name", placeholder="e.g. Amaka Johnson", max_chars=100)
-    whatsapp = st.text_input("WhatsApp Number", placeholder="+2348012345678", max_chars=20)
-    st.markdown(
-        "<div class='hint'>Include country code · digits only · e.g. +2348012345678</div>",
-        unsafe_allow_html=True,
-    )
+    # ── Order Form ──
+    with st.form("order_form", clear_on_submit=False):
 
-    # ── Delivery Area ──
-    st.markdown("""
-    <div class="section-head" style="margin-top:0.5rem">
-        <div class="section-head-icon">📍</div>
-        <span class="section-head-text">Delivery Area</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    location = st.radio(
-        "Delivery Area",
-        options=["🏙️  MAINLAND", "🏝️  ISLAND"],
-        index=0,
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    # Normalise to bare keyword
-    location = "MAINLAND" if "MAINLAND" in location else "ISLAND"
-
-    # Pack selection
-    st.markdown("""
-    <div class="section-head" style="margin-top:0.5rem">
-        <div class="section-head-icon">📦</div>
-        <span class="section-head-text">Choose Your Packs</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
+        # Customer details
         st.markdown("""
-        <div class="pack-card">
-            <div class="pack-top-bar">
-                <span class="pack-pill">SWEET &amp; GOLDEN</span>
-                <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
-            </div>
-            <div class="pack-title">
-                <span class="pack-dot"></span> Ripe Chips
-            </div>
-            <div class="pack-desc">Naturally sweet, crispy plantain slices</div>
+        <div class="section-head">
+            <div class="section-head-icon">👤</div>
+            <span class="section-head-text">Your Details</span>
         </div>
         """, unsafe_allow_html=True)
-        ripe_chips = st.number_input(
-            "Ripe Chips (Sweet & Golden)",
-            min_value=0,
-            max_value=999,
-            step=1,
-            value=0,
-            key="ripe_chips_qty",
+
+        name = st.text_input("Full Name", placeholder="e.g. Amaka Johnson", max_chars=100)
+        whatsapp = st.text_input("WhatsApp Number", placeholder="+2348012345678", max_chars=20)
+        st.markdown(
+            "<div class='hint'>Include country code · digits only · e.g. +2348012345678</div>",
+            unsafe_allow_html=True,
         )
 
-    with col2:
+        # ── Delivery Area ──
         st.markdown("""
-        <div class="pack-card">
-            <div class="pack-top-bar">
-                <span class="pack-pill">SAVOURY &amp; CRISP</span>
-                <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
-            </div>
-            <div class="pack-title">
-                <span class="pack-dot"></span> Unripe Chips
-            </div>
-            <div class="pack-desc">Lightly salted, savory crunch in every bite</div>
+        <div class="section-head" style="margin-top:0.5rem">
+            <div class="section-head-icon">📍</div>
+            <span class="section-head-text">Delivery Area</span>
         </div>
         """, unsafe_allow_html=True)
-        unripe_chips = st.number_input(
-            "Unripe Chips (Savoury & Crisp)",
-            min_value=0,
-            max_value=999,
-            step=1,
-            value=0,
-            key="unripe_chips_qty",
+
+        location = st.radio(
+            "Delivery Area",
+            options=["🏙️  MAINLAND", "🏝️  ISLAND"],
+            index=0,
+            horizontal=True,
+            label_visibility="collapsed",
         )
+        location = "MAINLAND" if "MAINLAND" in location else "ISLAND"
 
-    # Live total
-    total_packs = int(ripe_chips + unripe_chips)
-    calculated_total = int(total_packs * PRICE_PER_ITEM)
+        # Pack selection
+        st.markdown("""
+        <div class="section-head" style="margin-top:0.5rem">
+            <div class="section-head-icon">📦</div>
+            <span class="section-head-text">Choose Your Packs</span>
+        </div>
+        """, unsafe_allow_html=True)
 
-    if total_packs > 0:
-        detail = f"{ripe_chips} ripe + {unripe_chips} unripe = {total_packs} pack(s) × ₦{PRICE_PER_ITEM:,}"
-    else:
-        detail = "Select packs above to calculate your total"
-
-    st.markdown(f"""
-    <div class="total-wrap">
-        <div class="total-eyebrow">Order Total</div>
-        <div class="total-number">₦{calculated_total:,}</div>
-        <div class="total-detail">{detail}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    submitted = st.form_submit_button("🛒  Place My Order", use_container_width=True)
-
-
-# ── Submission handler ────────────────────────────────────────────────────────
-if submitted:
-    cleaned_name     = name.strip()
-    cleaned_whatsapp = whatsapp.strip()
-
-    if not cleaned_name:
-        st.error("❌ Please enter your full name.")
-    elif not re.fullmatch(r"^\+?\d{7,15}$", cleaned_whatsapp):
-        st.error("❌ Please enter a valid WhatsApp number (7–15 digits, optional '+' prefix).")
-    elif total_packs < 1:
-        st.error("❌ Please select at least 1 pack of ripe or unripe chips.")
-    else:
-        try:
-            with st.spinner("Placing your order..."):
-                final_total = save_to_database(
-                    name=cleaned_name,
-                    whatsapp=cleaned_whatsapp,
-                    ripe_chips=int(ripe_chips),
-                    unripe_chips=int(unripe_chips),
-                    location=location,
-                    total=calculated_total,
-                )
-            loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
-            st.success(
-                f"🎉 Order placed, **{cleaned_name}**!\n\n"
-                f"- 🟡 Ripe Chips: **{ripe_chips}** pack(s)\n"
-                f"- 🟢 Unripe Chips: **{unripe_chips}** pack(s)\n"
-                f"- {loc_icon} Location: **{location}**\n"
-                f"- 💰 Total: **₦{final_total:,}**"
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div class="pack-card">
+                <div class="pack-top-bar">
+                    <span class="pack-pill">SWEET &amp; GOLDEN</span>
+                    <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
+                </div>
+                <div class="pack-title">
+                    <span class="pack-dot"></span> Ripe Chips
+                </div>
+                <div class="pack-desc">Naturally sweet, crispy plantain slices</div>
+            </div>
+            """, unsafe_allow_html=True)
+            ripe_chips = st.number_input(
+                "Ripe Chips (Sweet & Golden)",
+                min_value=0,
+                max_value=999,
+                step=1,
+                value=0,
+                key="ripe_chips_qty",
             )
-            st.balloons()
-        except Exception as e:
-            st.error(f"❌ Order failed: {e}")
-            st.info("💡 Admin: check DATABASE_URL and ENCRYPTION_KEY in your secrets.")
+
+        with col2:
+            st.markdown("""
+            <div class="pack-card">
+                <div class="pack-top-bar">
+                    <span class="pack-pill">SAVOURY &amp; CRISP</span>
+                    <span class="pack-price">₦2,500 <span class="pack-unit">/pk</span></span>
+                </div>
+                <div class="pack-title">
+                    <span class="pack-dot"></span> Unripe Chips
+                </div>
+                <div class="pack-desc">Lightly salted, savory crunch in every bite</div>
+            </div>
+            """, unsafe_allow_html=True)
+            unripe_chips = st.number_input(
+                "Unripe Chips (Savoury & Crisp)",
+                min_value=0,
+                max_value=999,
+                step=1,
+                value=0,
+                key="unripe_chips_qty",
+            )
+
+        # Live total
+        total_packs = int(ripe_chips + unripe_chips)
+        calculated_total = int(total_packs * PRICE_PER_ITEM)
+
+        if total_packs > 0:
+            detail = f"{ripe_chips} ripe + {unripe_chips} unripe = {total_packs} pack(s) × ₦{PRICE_PER_ITEM:,}"
+        else:
+            detail = "Select packs above to calculate your total"
+
+        st.markdown(f"""
+        <div class="total-wrap">
+            <div class="total-eyebrow">Order Total</div>
+            <div class="total-number">₦{calculated_total:,}</div>
+            <div class="total-detail">{detail}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        submitted = st.form_submit_button("🛒  Place My Order", use_container_width=True)
+
+    if submitted:
+        cleaned_name     = name.strip()
+        cleaned_whatsapp = whatsapp.strip()
+
+        if not cleaned_name:
+            st.error("❌ Please enter your full name.")
+        elif not re.fullmatch(r"^\+?\d{7,15}$", cleaned_whatsapp):
+            st.error("❌ Please enter a valid WhatsApp number (7–15 digits, optional '+' prefix).")
+        elif total_packs < 1:
+            st.error("❌ Please select at least 1 pack of ripe or unripe chips.")
+        else:
+            try:
+                with st.spinner("Placing your order..."):
+                    final_total = save_to_database(
+                        name=cleaned_name,
+                        whatsapp=cleaned_whatsapp,
+                        ripe_chips=int(ripe_chips),
+                        unripe_chips=int(unripe_chips),
+                        location=location,
+                        total=calculated_total,
+                    )
+                    # Notify seller on Telegram
+                    send_telegram_notification(
+                        name=cleaned_name,
+                        whatsapp=cleaned_whatsapp,
+                        ripe_chips=int(ripe_chips),
+                        unripe_chips=int(unripe_chips),
+                        location=location,
+                        total=final_total,
+                    )
+                loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
+                st.success(
+                    f"🎉 Order placed, **{cleaned_name}**!\n\n"
+                    f"- 🟡 Ripe Chips: **{ripe_chips}** pack(s)\n"
+                    f"- 🟢 Unripe Chips: **{unripe_chips}** pack(s)\n"
+                    f"- {loc_icon} Location: **{location}**\n"
+                    f"- 💰 Total: **₦{final_total:,}**"
+                )
+                st.balloons()
+            except Exception as e:
+                st.error(f"❌ Order failed: {e}")
+                st.info("💡 Admin: check DATABASE_URL and ENCRYPTION_KEY in your secrets.")
+
+
+with tab_special:
+    # ── Special Hero ──
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-glow"></div>
+        <span class="hero-icon">⭐</span>
+        <h1 class="hero-title">Special Order<br><span>"On the Go" Plantain Chips</span></h1>
+        <p class="hero-sub">Custom Recipes · Event Catering · Bulk Batches · Flexible Dates</p>
+        <div>
+            <span class="special-badge">✨ BESPOKE &amp; BULK ORDERS</span>
+        </div>
+        <div class="special-banner">
+            <strong>How Special Orders Work:</strong> Need custom seasoning (extra spicy, unsalted, garlic herb), bulk party tubs, custom gift packaging, or delivery on a specific date? Tell us exactly what you need in the form below. Once received, the seller will personally review your request and message you on WhatsApp to confirm details &amp; pricing!
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("special_order_form", clear_on_submit=False):
+        # 1. Contact details
+        st.markdown("""
+        <div class="section-head">
+            <div class="section-head-icon">👤</div>
+            <span class="section-head-text">1. Your Contact Details</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        special_name = st.text_input("Full Name", placeholder="e.g. Amaka Johnson", max_chars=100, key="special_tab_name")
+        special_whatsapp = st.text_input("WhatsApp Number", placeholder="+2348012345678", max_chars=20, key="special_tab_whatsapp")
+        st.markdown(
+            "<div class='hint'>Include country code · digits only · e.g. +2348012345678</div>",
+            unsafe_allow_html=True,
+        )
+
+        # 2. Delivery & Logistics
+        st.markdown("""
+        <div class="section-head" style="margin-top:0.8rem">
+            <div class="section-head-icon">📍</div>
+            <span class="section-head-text">2. Delivery Logistics</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        special_location = st.radio(
+            "Delivery Area",
+            options=["🏙️  MAINLAND", "🏝️  ISLAND"],
+            index=0,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="special_tab_loc",
+        )
+        special_location = "MAINLAND" if "MAINLAND" in special_location else "ISLAND"
+
+        col_date, col_addr = st.columns(2)
+        with col_date:
+            special_delivery_date = st.date_input(
+                "Expected Delivery Date",
+                value=date.today() + timedelta(days=7),
+                min_value=date.today() + timedelta(days=1),
+                help="When do you need this order ready and delivered?",
+                key="special_tab_date",
+            )
+        with col_addr:
+            special_address = st.text_input(
+                "Delivery Landmark / Address (Optional)",
+                placeholder="e.g. Admiralty Way, Lekki Phase 1",
+                max_chars=200,
+                key="special_tab_addr",
+            )
+
+        # 3. The Core Feature: Order Specifics Text Area
+        st.markdown("""
+        <div class="section-head" style="margin-top:0.8rem">
+            <div class="section-head-icon">📝</div>
+            <span class="section-head-text">3. Describe Your Special Order</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        special_instructions = st.text_area(
+            "Special Order Specifics (Order Info, Quantities, Spices, Packaging)",
+            placeholder="Type all details of what you want to order here:\n\n"
+                        "• Chip Details: e.g. 30 ripe packs + 20 unripe packs, or 5kg event bowl\n"
+                        "• Flavours / Seasoning: e.g. extra spicy chili, sweet cinnamon, lightly salted\n"
+                        "• Packaging & Event: e.g. individual souvenir pouches, gift ribbons, wedding tags\n"
+                        "• Timing & Special Requests: e.g. deliver before 12 PM on event day",
+            height=210,
+            max_chars=2000,
+            help="Be as specific as possible about the quantity, flavour, packaging, and any dietary preferences.",
+            key="special_tab_instructions",
+        )
+        st.markdown(
+            "<div class='hint'>⭐ This text area is the main information the seller uses to prepare your custom batch.</div>",
+            unsafe_allow_html=True,
+        )
+
+        # 4. Optional Quick Pack Breakdown
+        st.markdown("""
+        <div class="section-head" style="margin-top:0.8rem">
+            <div class="section-head-icon">📦</div>
+            <span class="section-head-text">4. Estimated Pack Breakdown (Optional Guide)</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col1_sp, col2_sp = st.columns(2)
+        with col1_sp:
+            special_ripe = st.number_input(
+                "🟡 Ripe Packs (Sweet)",
+                min_value=0,
+                max_value=9999,
+                step=1,
+                value=0,
+                key="special_tab_ripe_qty",
+                help="If ordering by standard packs, enter your target ripe count.",
+            )
+        with col2_sp:
+            special_unripe = st.number_input(
+                "🟢 Unripe Packs (Savoury)",
+                min_value=0,
+                max_value=9999,
+                step=1,
+                value=0,
+                key="special_tab_unripe_qty",
+                help="If ordering by standard packs, enter your target unripe count.",
+            )
+
+        special_total_packs = int(special_ripe + special_unripe)
+        special_est_total = int(special_total_packs * PRICE_PER_ITEM)
+
+        if special_total_packs > 0:
+            st.markdown(f"""
+            <div class="total-wrap">
+                <div class="total-eyebrow">Estimated Base Total ({special_total_packs} packs)</div>
+                <div class="total-number">₦{special_est_total:,}</div>
+                <div class="total-detail">
+                    {special_ripe} ripe + {special_unripe} unripe × standard ₦{PRICE_PER_ITEM:,}/pack.<br>
+                    <em>Note: Custom seasonings, bulk discounts, or special packaging will be confirmed via WhatsApp.</em>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="total-wrap" style="padding: 1rem;">
+                <div class="total-eyebrow">Custom Pricing Notice</div>
+                <div class="total-detail" style="font-size:0.8rem; color: rgba(255,255,255,0.6);">
+                    No standard pack count selected above. The seller will calculate your custom quote based on the specifics described in the text area.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        special_submitted = st.form_submit_button("⭐  Submit Special Order Request", use_container_width=True)
+
+    if special_submitted:
+        sp_cleaned_name = special_name.strip()
+        sp_cleaned_whatsapp = special_whatsapp.strip()
+        sp_cleaned_instructions = special_instructions.strip()
+        sp_cleaned_address = special_address.strip()
+
+        if not sp_cleaned_name:
+            st.error("❌ Please enter your full name.")
+        elif not re.fullmatch(r"^\+?\d{7,15}$", sp_cleaned_whatsapp):
+            st.error("❌ Please enter a valid WhatsApp number (7–15 digits, optional '+' prefix).")
+        elif not sp_cleaned_instructions:
+            st.error("❌ Please describe your special order in the text area.")
+        else:
+            full_instructions = sp_cleaned_instructions
+            if sp_cleaned_address:
+                full_instructions = f"Delivery Address: {sp_cleaned_address}\n\n{sp_cleaned_instructions}"
+
+            try:
+                with st.spinner("Submitting your special order to the seller…"):
+                    sp_final_total = save_special_order_to_database(
+                        name=sp_cleaned_name,
+                        whatsapp=sp_cleaned_whatsapp,
+                        ripe_chips=int(special_ripe),
+                        unripe_chips=int(special_unripe),
+                        location=special_location,
+                        delivery_date=special_delivery_date,
+                        full_instructions=full_instructions,
+                        total=special_est_total,
+                    )
+                    send_special_order_telegram(
+                        name=sp_cleaned_name,
+                        whatsapp=sp_cleaned_whatsapp,
+                        ripe_chips=int(special_ripe),
+                        unripe_chips=int(special_unripe),
+                        location=special_location,
+                        delivery_date=str(special_delivery_date),
+                        address=sp_cleaned_address,
+                        special_instructions=sp_cleaned_instructions,
+                        total=sp_final_total,
+                    )
+                loc_icon = "🏙️" if special_location == "MAINLAND" else "🏝️"
+                st.success(
+                    f"⭐ **Special Order Received, {sp_cleaned_name}!**\n\n"
+                    f"- 📅 Expected Delivery: **{special_delivery_date}**\n"
+                    f"- {loc_icon} Location: **{special_location}**\n"
+                    f"- 📦 Est. Packs: **{special_ripe} Ripe** / **{special_unripe} Unripe**\n\n"
+                    f"Your order specifics have been dispatched directly to the seller's Telegram. "
+                    f"The seller will contact you shortly on WhatsApp (**{sp_cleaned_whatsapp}**) to confirm details and finalize your custom quote! 🍌"
+                )
+                st.balloons()
+            except Exception as e:
+                st.error(f"❌ Special order submission failed: {e}")
+                st.info("💡 Admin: check TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, and DATABASE_URL in your secrets.")
 
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
     🔒 Your data is encrypted &amp; never shared<br>
-    Orders collected weekly · Closes every <strong style="color:rgba(255,180,0,0.35)">Wednesday at 5 PM</strong>
+    "On the Go" Plantain Chips · Freshly handcrafted weekly
 </div>
 """, unsafe_allow_html=True)
