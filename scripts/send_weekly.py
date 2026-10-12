@@ -45,7 +45,8 @@ def main():
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, name, whatsapp_enc, ripe_chips, unripe_chips, location, total, created_at "
+            "SELECT id, name, whatsapp_enc, ripe_chips, unripe_chips, location, total, created_at, "
+            "COALESCE(is_special, FALSE), COALESCE(delivery_date, ''), COALESCE(special_instructions, '') "
             "FROM orders ORDER BY location, id"
         )
         rows = cur.fetchall()
@@ -67,10 +68,14 @@ def main():
             "location",
             "total",
             "created_at",
+            "is_special",
+            "delivery_date",
+            "special_instructions",
         ])
 
         for r in rows:
-            # Columns: 0:id, 1:name, 2:whatsapp_enc, 3:ripe_chips, 4:unripe_chips, 5:location, 6:total, 7:created_at
+            # Columns: 0:id, 1:name, 2:whatsapp_enc, 3:ripe_chips, 4:unripe_chips, 5:location, 6:total, 7:created_at,
+            #          8:is_special, 9:delivery_date, 10:special_instructions
             try:
                 decrypted_number = fernet.decrypt(r[2].encode()).decode()
             except Exception as e:
@@ -83,7 +88,11 @@ def main():
                 else str(r[7])
             )
             total_chips = r[3] + r[4]
-            w.writerow([r[0], r[1], decrypted_number, r[3], r[4], total_chips, r[5], r[6], created_str])
+            is_special = "YES" if r[8] else "NO"
+            delivery_date = r[9] or ""
+            special_instructions = r[10] or ""
+            w.writerow([r[0], r[1], decrypted_number, r[3], r[4], total_chips, r[5], r[6], created_str,
+                        is_special, delivery_date, special_instructions])
 
         total_ripe = sum(r[3] for r in rows)
         total_unripe = sum(r[4] for r in rows)
