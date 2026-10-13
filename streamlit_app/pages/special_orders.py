@@ -613,15 +613,13 @@ with st.form("special_order_form", clear_on_submit=False):
     """, unsafe_allow_html=True)
 
     special_instructions = st.text_area(
-        "Special Order Specifics (Order Info, Quantities, Spices, Packaging)",
+        "Special Order Specifics (More information about your order)",
         placeholder="Type all details of what you want to order here:\n\n"
-                    "• Chip Details: e.g. 30 ripe packs + 20 unripe packs, or 5kg event bowl\n"
-                    "• Flavours / Seasoning: e.g. extra spicy chili, sweet cinnamon, lightly salted\n"
-                    "• Packaging & Event: e.g. individual souvenir pouches, gift ribbons, wedding tags\n"
+                    "• Chip Details: e.g. I want 55 ripe chips and 35 unripe chips\n"
                     "• Timing & Special Requests: e.g. deliver before 12 PM on event day",
         height=210,
         max_chars=2000,
-        help="Be as specific as possible about the quantity, flavour, packaging, and any dietary preferences.",
+        help="Ensure important information is put in",
     )
     st.markdown(
         "<div class='hint'>⭐ This text area is the main information the seller uses to prepare your custom batch.</div>",
