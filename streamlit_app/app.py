@@ -11,8 +11,26 @@ try:
 except ImportError:
     pass
 
-# Price per item
-PRICE_PER_ITEM = 2500
+import sys
+from pathlib import Path
+
+# Ensure working directory and paths are in sys.path so util imports succeed reliably
+_current_dir = Path(__file__).resolve().parent
+_root_dir = _current_dir.parent
+for _p in [str(_current_dir), str(_root_dir)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from util.util import (
+    DatabaseError,
+    TelegramError,
+    get_config_value,
+    save_to_database,
+    save_special_order_to_database,
+    send_telegram_notification,
+    send_special_order_telegram,
+    PRICE_PER_ITEM,
+)
 
 st.set_page_config(
     page_title="Plantain Chips Order",
@@ -588,220 +606,7 @@ div[data-testid="stDateInput"] input {
 </style>
 """, unsafe_allow_html=True)
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-def get_config_value(name: str, default: str = None) -> str:
-    try:
-        if name in st.secrets:
-            return st.secrets[name]
-    except Exception:
-        pass
-    val = os.environ.get(name, default)
-    return val.strip() if isinstance(val, str) else val
-
-
-def save_to_database(name, whatsapp, ripe_chips, unripe_chips, location, total):
-    db_url     = get_config_value("DATABASE_URL")
-    enc_key    = get_config_value("ENCRYPTION_KEY")
-    supabase_url  = get_config_value("SUPABASE_URL")
-    supabase_key  = get_config_value("SUPABASE_KEY")
-    api_url    = get_config_value("API_URL")
-    api_key    = get_config_value("API_KEY")
-
-    # Mode 1: Direct Postgres
-    if db_url:
-        import psycopg2
-        from cryptography.fernet import Fernet
-        if not enc_key:
-            raise ValueError("ENCRYPTION_KEY is missing.")
-        fernet = Fernet(enc_key.encode())
-        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
-        conn = psycopg2.connect(db_url)
-        try:
-            with conn, conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO orders (name, whatsapp_enc, ripe_chips, unripe_chips, location, total) "
-                    "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (name.strip(), whatsapp_enc, ripe_chips, unripe_chips, location, total),
-                )
-        finally:
-            conn.close()
-        return total
-
-    # Mode 2: Supabase REST
-    elif supabase_url and supabase_key:
-        from cryptography.fernet import Fernet
-        if not enc_key:
-            raise ValueError("ENCRYPTION_KEY is missing.")
-        fernet = Fernet(enc_key.encode())
-        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
-        headers = {
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        }
-        payload = {
-            "name": name.strip(), "whatsapp_enc": whatsapp_enc,
-            "ripe_chips": ripe_chips, "unripe_chips": unripe_chips,
-            "location": location, "total": total,
-        }
-        res = requests.post(f"{supabase_url.rstrip('/')}/rest/v1/orders",
-                            json=payload, headers=headers, timeout=15)
-        if not res.ok:
-            raise RuntimeError(f"Supabase REST error: {res.status_code} - {res.text}")
-        return total
-
-    # Mode 3: FastAPI backend
-    elif api_url and api_key:
-        res = requests.post(
-            f"{api_url.rstrip('/')}/submit",
-            json={"name": name.strip(), "whatsapp": whatsapp.strip(),
-                  "ripe_chips": ripe_chips, "unripe_chips": unripe_chips, "location": location},
-            headers={"X-API-Key": api_key},
-            timeout=30,
-        )
-        if not res.ok:
-            raise RuntimeError(f"API error: {res.status_code} - {res.text}")
-        return res.json().get("total", total)
-
-    else:
-        raise ValueError("No backend configured. Add DATABASE_URL + ENCRYPTION_KEY to secrets.")
-
-
-def send_telegram_notification(name, whatsapp, ripe_chips, unripe_chips, location, total):
-    """Send an instant Telegram message to the seller when an order is placed."""
-    bot_token = get_config_value("TELEGRAM_BOT_TOKEN")
-    chat_id   = get_config_value("TELEGRAM_CHAT_ID")
-    if not bot_token or not chat_id:
-        return  # Telegram not configured — skip silently
-
-    loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
-    total_packs = ripe_chips + unripe_chips
-    message = (
-        f"🛒 *New Order Received!*\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"👤 *Name:* {name}\n"
-        f"📱 *WhatsApp:* `{whatsapp}`\n"
-        f"🟡 *Ripe Chips:* {ripe_chips} pack(s)\n"
-        f"🟢 *Unripe Chips:* {unripe_chips} pack(s)\n"
-        f"📦 *Total Packs:* {total_packs}\n"
-        f"{loc_icon} *Location:* {location}\n"
-        f"💰 *Total:* ₦{total:,}\n"
-        f"━━━━━━━━━━━━━━━━━━"
-    )
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-            json={
-                "chat_id": chat_id,
-                "text": message,
-                "parse_mode": "Markdown",
-            },
-            timeout=10,
-        )
-    except Exception:
-        pass  # Don't break the order flow if Telegram fails
-
-
-def send_special_order_telegram(name, whatsapp, ripe_chips, unripe_chips, location, delivery_date, address, special_instructions, total):
-    """Send a SPECIAL ORDER notification in CAPS to the seller's Telegram."""
-    bot_token = get_config_value("TELEGRAM_BOT_TOKEN")
-    chat_id   = get_config_value("TELEGRAM_CHAT_ID")
-    if not bot_token or not chat_id:
-        raise ValueError("Telegram is not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to secrets.")
-
-    loc_icon = "🏙️" if location == "MAINLAND" else "🏝️"
-    total_packs = ripe_chips + unripe_chips
-    address_line = f"🏢 *Address / Landmark:* {address}\n" if address else ""
-    price_line = f"💰 *Estimated Total:* ₦{total:,}\n" if total > 0 else "💰 *Quote:* Custom Quote (Pending Seller Review)\n"
-
-    message = (
-        f"🚨🚨🚨 *SPECIAL ORDER* 🚨🚨🚨\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 *Customer:* {name}\n"
-        f"📱 *WhatsApp:* `{whatsapp}`\n"
-        f"{loc_icon} *Area:* {location}\n"
-        f"{address_line}"
-        f"📅 *Expected Delivery:* {delivery_date}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🟡 *Ripe Packs (Est.):* {ripe_chips}\n"
-        f"🟢 *Unripe Packs (Est.):* {unripe_chips}\n"
-        f"📦 *Total Est. Packs:* {total_packs}\n"
-        f"{price_line}"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📝 *SPECIAL ORDER SPECIFICS:*\n"
-        f"{special_instructions}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━"
-    )
-    resp = requests.post(
-        f"https://api.telegram.org/bot{bot_token}/sendMessage",
-        json={
-            "chat_id": chat_id,
-            "text": message,
-            "parse_mode": "Markdown",
-        },
-        timeout=15,
-    )
-    if not resp.ok:
-        raise RuntimeError(f"Telegram API error: {resp.status_code} - {resp.text}")
-
-
-def save_special_order_to_database(name, whatsapp, ripe_chips, unripe_chips, location, delivery_date, full_instructions, total):
-    """Save the special order to the database with is_special = TRUE."""
-    db_url     = get_config_value("DATABASE_URL")
-    enc_key    = get_config_value("ENCRYPTION_KEY")
-    supabase_url  = get_config_value("SUPABASE_URL")
-    supabase_key  = get_config_value("SUPABASE_KEY")
-
-    if db_url:
-        import psycopg2
-        from cryptography.fernet import Fernet
-        if not enc_key:
-            raise ValueError("ENCRYPTION_KEY is missing.")
-        fernet = Fernet(enc_key.encode())
-        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
-        conn = psycopg2.connect(db_url)
-        try:
-            with conn, conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO orders (name, whatsapp_enc, ripe_chips, unripe_chips, location, total, delivery_date, special_instructions, is_special) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    (name.strip(), whatsapp_enc, ripe_chips, unripe_chips, location, total,
-                     str(delivery_date), full_instructions.strip(), True),
-                )
-        finally:
-            conn.close()
-        return total
-
-    elif supabase_url and supabase_key:
-        from cryptography.fernet import Fernet
-        if not enc_key:
-            raise ValueError("ENCRYPTION_KEY is missing.")
-        fernet = Fernet(enc_key.encode())
-        whatsapp_enc = fernet.encrypt(whatsapp.strip().encode()).decode()
-        headers = {
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        }
-        payload = {
-            "name": name.strip(), "whatsapp_enc": whatsapp_enc,
-            "ripe_chips": ripe_chips, "unripe_chips": unripe_chips,
-            "location": location, "total": total,
-            "delivery_date": str(delivery_date),
-            "special_instructions": full_instructions.strip(),
-            "is_special": True,
-        }
-        res = requests.post(f"{supabase_url.rstrip('/')}/rest/v1/orders",
-                            json=payload, headers=headers, timeout=15)
-        if not res.ok:
-            raise RuntimeError(f"Supabase REST error: {res.status_code} - {res.text}")
-        return total
-
-    else:
-        raise ValueError("No backend configured. Add DATABASE_URL + ENCRYPTION_KEY to secrets.")
+# Helpers are imported from util.util
 
 
 # ── Creator credit ───────────────────────────────────────────────────────────
@@ -988,6 +793,13 @@ with tab_regular:
                     f"- 💰 Total: **₦{final_total:,}**"
                 )
                 st.balloons()
+            except DatabaseError as e:
+                st.error(f"❌ {e}")
+                st.info("💡 Admin: check DATABASE_URL and ENCRYPTION_KEY in your secrets.")
+            except TelegramError as e:
+                st.error(f"❌ {e}")
+                st.warning("⚠️ Note: Your order was stored in our database, but the message was not sent to the seller via Telegram. Please reach out to the seller directly on WhatsApp.")
+                st.info("💡 Admin: check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in your secrets.")
             except Exception as e:
                 st.error(f"❌ Order failed: {e}")
                 st.info("💡 Admin: check DATABASE_URL and ENCRYPTION_KEY in your secrets.")
@@ -1192,6 +1004,13 @@ with tab_special:
                     f"The seller will contact you shortly on WhatsApp (**{sp_cleaned_whatsapp}**) to confirm details and finalize your custom quote! 🍌"
                 )
                 st.balloons()
+            except DatabaseError as e:
+                st.error(f"❌ {e}")
+                st.info("💡 Admin: check DATABASE_URL and ENCRYPTION_KEY in your secrets.")
+            except TelegramError as e:
+                st.error(f"❌ {e}")
+                st.warning("⚠️ Note: Your special order was stored in our database, but the message was not sent to the seller via Telegram. Please reach out to the seller directly on WhatsApp.")
+                st.info("💡 Admin: check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in your secrets.")
             except Exception as e:
                 st.error(f"❌ Special order submission failed: {e}")
                 st.info("💡 Admin: check TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, and DATABASE_URL in your secrets.")
